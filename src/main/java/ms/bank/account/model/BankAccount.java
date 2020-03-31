@@ -21,8 +21,8 @@ public class BankAccount {
   @NotEmpty(message = "Bank Account code can not be empty")
   private String code;
 
-  @NotEmpty(message = "Bank Account description can not be empty")
-  private String description;
+  @NotEmpty(message = "Bank Account Transaction Client Id can not be empty")
+  private String clientId;
 
   private Double balance;
 
