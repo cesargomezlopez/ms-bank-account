@@ -6,7 +6,9 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -32,8 +34,13 @@ public class BankAccount {
 
   private Double commission;
 
+  @CreatedDate
   @JsonFormat(pattern = "yyyy-MM-dd")
-  private Date startDate;
+  private Date createdDate = new Date();
+
+  @LastModifiedDate
+  @JsonFormat(pattern = "yyyy-MM-dd")
+  private Date lastModifiedDate = new Date();
 
   @Valid
   @DBRef

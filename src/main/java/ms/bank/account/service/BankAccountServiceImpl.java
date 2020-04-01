@@ -6,6 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -30,7 +33,21 @@ public class BankAccountServiceImpl implements IBankAccountService {
   public Mono<BankAccount> create(BankAccount entity) {
     try {
       return getClientByIdFromApi(entity.getClientId()).flatMap(cl -> {
-        return bankAccountRepository.save(entity);
+        JsonParser parser = new JsonParser();
+        JsonObject client = parser.parse(cl).getAsJsonObject();
+        JsonObject clientType = client.get("clientType").getAsJsonObject();
+        String clientId = client.get("id").getAsString();
+        String clientTypeCode = clientType.get("code").getAsString();
+        return existBankAccountByClientIdAndBankAccountTypeId(
+          clientId, entity.getBankAccountType().getId()).flatMap(rs -> {
+            if(rs && clientTypeCode.equals("01")) {
+              return Mono.error(new Exception(
+                "Personal Client Type can not has more than 1 '"
+                + entity.getBankAccountType().getDescription() + "' Type Bank Account"));
+            } else {
+              return bankAccountRepository.save(entity);
+            }
+          });
       }).switchIfEmpty(Mono.error(new Exception("Client not found")));
     } catch (Exception e) {
       return Mono.error(e);  
@@ -55,6 +72,12 @@ public class BankAccountServiceImpl implements IBankAccountService {
     return bankAccountRepository.findById(id).flatMap(ba -> {
       return bankAccountRepository.delete(ba);
     }).switchIfEmpty(Mono.empty());
+  }
+  
+  public Mono<Boolean> existBankAccountByClientIdAndBankAccountTypeId(
+      String clientId, String bankAccountTypeId) {
+    return bankAccountRepository
+      .existsByClientIdAndBankAccountType_Id(clientId, bankAccountTypeId);
   }
 
   public Mono<String> getClientByIdFromApi(String clientId) {
