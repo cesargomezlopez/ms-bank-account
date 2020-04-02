@@ -44,6 +44,11 @@ public class BankAccountServiceImpl implements IBankAccountService {
               return Mono.error(new Exception(
                 "Personal Client Type can not has more than 1 '"
                 + entity.getBankAccountType().getDescription() + "' Type Bank Account"));
+            } else if(clientTypeCode.equals("02") 
+                && !entity.getBankAccountType().getCode().equals("02")) {
+              return Mono.error(new Exception(
+                        "Empresarial Client Type can not has '"
+                        + entity.getBankAccountType().getDescription() + "' Type Bank Account"));
             } else {
               return bankAccountRepository.save(entity);
             }
