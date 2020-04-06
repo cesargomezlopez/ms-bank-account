@@ -2,6 +2,8 @@ package ms.bank.account.service;
 
 import ms.bank.account.model.BankAccount;
 import ms.bank.account.repository.IBankAccountRepository;
+import ms.bank.account.repository.IBankAccountTypeRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,6 +19,9 @@ public class BankAccountServiceImpl implements IBankAccountService {
 
   @Autowired
   private IBankAccountRepository bankAccountRepository;
+  
+  @Autowired
+  private IBankAccountTypeRepository bankAccountTypeRepository;
 
   @Override
   public Flux<BankAccount> findAll() {
@@ -38,21 +43,25 @@ public class BankAccountServiceImpl implements IBankAccountService {
         JsonObject clientType = client.get("clientType").getAsJsonObject();
         String clientId = client.get("id").getAsString();
         String clientTypeCode = clientType.get("code").getAsString();
-        return existBankAccountByClientIdAndBankAccountTypeId(
-          clientId, entity.getBankAccountType().getId()).flatMap(rs -> {
-            if(rs && clientTypeCode.equals("01")) {
-              return Mono.error(new Exception(
-                "Personal Client Type can not has more than 1 '"
-                + entity.getBankAccountType().getDescription() + "' Type Bank Account"));
-            } else if(clientTypeCode.equals("02") 
-                && !entity.getBankAccountType().getCode().equals("02")) {
-              return Mono.error(new Exception(
-                        "Empresarial Client Type can not has '"
-                        + entity.getBankAccountType().getDescription() + "' Type Bank Account"));
-            } else {
-              return bankAccountRepository.save(entity);
-            }
-          });
+        
+        return bankAccountTypeRepository.findById(
+          entity.getBankAccountType().getId()).flatMap(bat -> {
+            return existBankAccountByClientIdAndBankAccountTypeId(
+                clientId, bat.getId()).flatMap(rs -> {
+                  if(rs && clientTypeCode.equals("01")) {
+                    return Mono.error(new Exception(
+                      "Personal Client Type can not has more than 1 '"
+                      + bat.getDescription() + "' Type Bank Account"));
+                  } else if(clientTypeCode.equals("02") 
+                      && !bat.getCode().equals("02")) {
+                    return Mono.error(new Exception(
+                              "Empresarial Client Type can not has '"
+                              + bat.getDescription() + "' Type Bank Account"));
+                  } else {
+                    return bankAccountRepository.save(entity);
+                  }
+                });
+          }).switchIfEmpty(Mono.error(new Exception("Bank Account Type not found")));
       }).switchIfEmpty(Mono.error(new Exception("Client not found")));
     } catch (Exception e) {
       return Mono.error(e);  
@@ -64,7 +73,30 @@ public class BankAccountServiceImpl implements IBankAccountService {
     try {
       return getClientByIdFromApi(entity.getClientId()).flatMap(cl -> {
         return bankAccountRepository.findById(entity.getId()).flatMap(ba -> {
-          return bankAccountRepository.save(entity);
+          JsonParser parser = new JsonParser();
+          JsonObject client = parser.parse(cl).getAsJsonObject();
+          JsonObject clientType = client.get("clientType").getAsJsonObject();
+          String clientId = client.get("id").getAsString();
+          String clientTypeCode = clientType.get("code").getAsString();
+            
+          return bankAccountTypeRepository.findById(
+            entity.getBankAccountType().getId()).flatMap(bat -> {
+              return existBankAccountByClientIdAndBankAccountTypeId(
+                clientId, bat.getId()).flatMap(rs -> {
+                  if(rs && clientTypeCode.equals("01")) {
+                    return Mono.error(new Exception(
+                      "Personal Client Type can not has more than 1 '"
+                      + bat.getDescription() + "' Type Bank Account"));
+                  } else if(clientTypeCode.equals("02") 
+                      && !bat.getCode().equals("02")) {
+                    return Mono.error(new Exception(
+                              "Empresarial Client Type can not has '"
+                              + bat.getDescription() + "' Type Bank Account"));
+                  } else {
+                    return bankAccountRepository.save(entity);
+                  }
+                });
+            }).switchIfEmpty(Mono.error(new Exception("Bank Account Type not found")));
         }).switchIfEmpty(Mono.error(new Exception("Bank Account not found")));
       }).switchIfEmpty(Mono.error(new Exception("Client not found")));
     } catch (Exception e) {
