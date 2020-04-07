@@ -55,7 +55,7 @@ public class BankAccountServiceImpl implements IBankAccountService {
           entity.getBankAccountType().getId()).flatMap(bat -> {
             return existBankAccountByClientIdAndBankAccountTypeId(
                 clientId, bat.getId()).flatMap(rs -> {
-                  if((bat.getCode().equals("04") || bat.getCode().equals("05")
+                  if ((bat.getCode().equals("04") || bat.getCode().equals("05")
                       || bat.getCode().equals("06") || bat.getCode().equals("07")
                       || bat.getCode().equals("08"))
                       && (entity.getBalance() < bat.getMinOpeningBalance())) {
@@ -63,11 +63,11 @@ public class BankAccountServiceImpl implements IBankAccountService {
                       + bat.getDescription()
                       + "' type can not be less than the Minimum Opening Balance ("
                       + bat.getMinOpeningBalance() + ")"));
-                  } else if(rs && clientTypeCode.equals("01")) {
+                  } else if (rs && clientTypeCode.equals("01")) {
                     return Mono.error(new Exception(
                       "Personal Client Type can not has more than 1 '"
                       + bat.getDescription() + "' Type Bank Account"));
-                  } else if(clientTypeCode.equals("02") 
+                  } else if (clientTypeCode.equals("02")
                       && !bat.getCode().equals("02")) {
                     return Mono.error(new Exception(
                               "Empresarial Client Type can not has '"
@@ -100,12 +100,12 @@ public class BankAccountServiceImpl implements IBankAccountService {
             entity.getBankAccountType().getId()).flatMap(bat -> {
               return existBankAccountByClientIdAndBankAccountTypeId(
                 clientId, bat.getId()).flatMap(rs -> {
-                  if(rs && clientTypeCode.equals("01")
+                  if (rs && clientTypeCode.equals("01")
                       && !(entity.getBankAccountType().getId().equals(bat.getId()))) {
                     return Mono.error(new Exception(
                       "Personal Client Type can not has more than 1 '"
                       + bat.getDescription() + "' Type Bank Account"));
-                  } else if(clientTypeCode.equals("02")
+                  } else if (clientTypeCode.equals("02")
                       && !bat.getCode().equals("02")
                       && !(entity.getBankAccountType().getId().equals(bat.getId()))) {
                     return Mono.error(new Exception(

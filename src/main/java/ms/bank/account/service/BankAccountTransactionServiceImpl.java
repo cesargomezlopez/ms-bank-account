@@ -2,7 +2,6 @@ package ms.bank.account.service;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import ms.bank.account.model.BankAccountCommission;
@@ -10,6 +9,7 @@ import ms.bank.account.model.BankAccountTransaction;
 import ms.bank.account.repository.IBankAccountCommissionRepository;
 import ms.bank.account.repository.IBankAccountRepository;
 import ms.bank.account.repository.IBankAccountTransactionRepository;
+import ms.bank.account.util.Confirmation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -53,11 +53,11 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
           if (ba.getBalance() >= 0) {
             ba.setNumTransactions(ba.getNumTransactions() + 1);
             bankAccountRepository.save(ba).subscribe();
-            
-            BankAccountCommission bco =
-                new BankAccountCommission(ba.getId(), ba.getCommission(), new Date());
-            bankAccountCommissionRepository.save(bco).subscribe();
-            
+            if (ba.getNumTransactions() > ba.getMaxNumTransactions()) {
+              BankAccountCommission bco =
+                  new BankAccountCommission(ba.getId(), ba.getCommission(), new Date());
+              bankAccountCommissionRepository.save(bco).subscribe();
+            }
             entity.setRegisterDate(new Date());
             return bankAccountTransactionRepository.save(entity);
           } else {
@@ -167,6 +167,57 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
       return Flux.error(e);
     }
   }
+  
+  @Override
+  public Mono<Confirmation>
+      payCreditAccountDebt(String bankAccountId, String creditAccountId) {      
+    try {
+      return bankAccountRepository.findById(bankAccountId).flatMap(ba -> {
+        return getCreditAccountDebt(creditAccountId).flatMap(debt -> {
+   
+          ba.setBalance(ba.getBalance() - debt);
+          
+          if (ba.getNumTransactions() >= ba.getMaxNumTransactions()) {
+            ba.setBalance(ba.getBalance() - ba.getCommission());
+          }
+          
+          if (ba.getBalance() >= 0) {
+            ba.setNumTransactions(ba.getNumTransactions() + 1);
+            bankAccountRepository.save(ba).subscribe();
+            
+            if (ba.getNumTransactions() > ba.getMaxNumTransactions()) {
+              BankAccountCommission bco =
+                  new BankAccountCommission(ba.getId(), ba.getCommission(), new Date());
+              bankAccountCommissionRepository.save(bco).subscribe();
+            }
+            BankAccountTransaction batt = new BankAccountTransaction();
+            batt.setCode("PCAD" + creditAccountId);
+            batt.setAmount(-debt);
+            batt.setBankAccountId(bankAccountId);
+            batt.setClientId(ba.getClientId());
+            batt.setRegisterDate(new Date());
+            bankAccountTransactionRepository.save(batt).subscribe();
+            
+            return payCreditAccountDebt(creditAccountId).flatMap(rpt -> {
+              if (rpt == 1) {
+                return Mono.just(new Confirmation(1, "Ok, Credit Account Debt paid"));
+              }  else {
+                return Mono.just(new Confirmation(-1, "An error was found when"
+                    + "get the credit account debt"));
+              }
+            });
+
+          } else {
+            return Mono.just(new Confirmation(0,
+              "The bank account doesn´t have sufficient balance to pay credit account debt"));
+          }
+        }).switchIfEmpty(Mono.just(new Confirmation(-1,
+              "An error was found when get the credit account debt")));
+      }).switchIfEmpty(Mono.error(new Exception("Bank Account not found"))); 
+    } catch (Exception e) {
+      return Mono.error(e);
+    }
+  }
 
   public Mono<String> getClientByIdFromApi(String clientId) {
     try {
@@ -176,6 +227,32 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
         .uri(url)
         .retrieve()
         .bodyToMono(String.class);	
+    } catch (Exception e) {
+      return Mono.error(e);
+    }
+  }
+  
+  public Mono<Double> getCreditAccountDebt(String creditAccountId) {
+    try {
+      String url = "http://localhost:8003/creditAccount/getDebt?creditAccountId=" + creditAccountId;
+      return WebClient.create()
+        .get()
+        .uri(url)
+        .retrieve()
+        .bodyToMono(Double.class);	
+    } catch (Exception e) {
+      return Mono.error(e);
+    }
+  }
+  
+  public Mono<Integer> payCreditAccountDebt(String creditAccountId) {
+    try {
+      String url = "http://localhost:8003/creditAccount/payDebt?creditAccountId=" + creditAccountId;
+      return WebClient.create()
+        .post()
+        .uri(url)
+        .retrieve()
+        .bodyToMono(Integer.class);	
     } catch (Exception e) {
       return Mono.error(e);
     }

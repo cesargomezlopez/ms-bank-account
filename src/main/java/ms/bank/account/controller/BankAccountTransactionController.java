@@ -9,6 +9,8 @@ import javax.validation.Valid;
 import ms.bank.account.model.BankAccountCommission;
 import ms.bank.account.model.BankAccountTransaction;
 import ms.bank.account.service.IBankAccountTransactionService;
+import ms.bank.account.util.Confirmation;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -144,6 +146,22 @@ public class BankAccountTransactionController {
       .contentType(MediaType.APPLICATION_JSON)
       .body(bankAccountTransactionService.getCommissionReport(startDate, endDate)))
       .defaultIfEmpty(ResponseEntity.notFound().build());
+  }
+  
+  @PostMapping(value = "/payCreditAccountDebt",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @ApiOperation(value = "A specific bank account pays a specific credit account debt",
+      notes = "Needs start date and end date")
+  public Mono<ResponseEntity<Confirmation>>
+      payCreditAccountDebt(@RequestParam("bankAccountId")String bankAccountId,
+            @RequestParam("creditAccountId")String creditAccountId) {
+    return bankAccountTransactionService
+      .payCreditAccountDebt(bankAccountId, creditAccountId).flatMap(rs -> {
+        return Mono.just(ResponseEntity.ok()
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(rs))
+          .defaultIfEmpty(ResponseEntity.notFound().build());
+      });
   }
 
 }
