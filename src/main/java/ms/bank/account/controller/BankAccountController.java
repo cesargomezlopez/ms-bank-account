@@ -50,6 +50,16 @@ public class BankAccountController {
 					.body(ba));
 		}).defaultIfEmpty(ResponseEntity.notFound().build());
 	}
+	
+	@GetMapping(value = "/findBankAccountsByIdCient", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ApiOperation(value = "Find Bank Accounts by client id", notes = "Find Bank Accounts registered by client id")
+	public Mono<ResponseEntity<Flux<BankAccount>>> findBankAccountsByClientId(@RequestParam("clientId")String clientId) {
+        return Mono.just(ResponseEntity
+          .ok()
+          .contentType(MediaType.APPLICATION_JSON)
+          .body(bankAccountService.findByClientId(clientId)))
+          .defaultIfEmpty(ResponseEntity.notFound().build());
+	}
 
 	@PostMapping(value = "/createBankAccount", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ApiOperation(value = "Creates a Bank Account", notes = "Register a new Bank Account")

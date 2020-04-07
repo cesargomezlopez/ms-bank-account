@@ -3,12 +3,11 @@ package ms.bank.account.model;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.util.Date;
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -26,21 +25,29 @@ public class BankAccount {
   @NotEmpty(message = "Bank Account Transaction Client Id can not be empty")
   private String clientId;
 
+  @Min(value = 0L, message = "Bank Account Balance can not be negative")
   private Double balance;
 
-  private Integer maxDepositAmount;
+  @Min(value = 0L, message = "Bank Account Maximum Deposit Amount can not be negative")
+  private Double maxDepositAmount;
 
-  private Integer maxWithdrawalAmount;
+  @Min(value = 0L, message = "Bank Account Maximum Withdrawal Amount can not be negative")
+  private Double maxWithdrawalAmount;
 
+  @Min(value = 0, message = "Bank Account Maximun Number of Transactions can not be negative")
+  private Integer maxNumTransactions;
+
+  @Min(value = 0, message = "Bank Account Number of Transactions can not be negative")
+  private Integer numTransactions;
+
+  @Min(value = 0L, message = "Bank Account Commission can not be negative")
   private Double commission;
 
-  @CreatedDate
   @JsonFormat(pattern = "yyyy-MM-dd")
-  private Date createdDate = new Date();
+  private Date createdDate;
 
-  @LastModifiedDate
   @JsonFormat(pattern = "yyyy-MM-dd")
-  private Date lastModifiedDate = new Date();
+  private Date lastModifiedDate;
 
   @Valid
   @DBRef

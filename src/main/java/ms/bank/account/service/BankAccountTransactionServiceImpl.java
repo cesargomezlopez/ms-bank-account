@@ -2,12 +2,14 @@ package ms.bank.account.service;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import ms.bank.account.model.BankAccountCommission;
 import ms.bank.account.model.BankAccountTransaction;
+import ms.bank.account.repository.IBankAccountCommissionRepository;
 import ms.bank.account.repository.IBankAccountRepository;
 import ms.bank.account.repository.IBankAccountTransactionRepository;
-
-import java.util.Date;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -22,6 +24,9 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
 
   @Autowired
   private IBankAccountRepository bankAccountRepository;
+
+  @Autowired
+  private IBankAccountCommissionRepository bankAccountCommissionRepository;
 
   @Override
   public Flux<BankAccountTransaction> findAll() {
@@ -40,8 +45,19 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
       return getClientByIdFromApi(entity.getClientId()).flatMap(cl -> {
         return bankAccountRepository.findById(entity.getBankAccountId()).flatMap(ba -> {
           ba.setBalance(ba.getBalance() + entity.getAmount());
+          
+          if (ba.getNumTransactions() >= ba.getMaxNumTransactions()) {
+            ba.setBalance(ba.getBalance() - ba.getCommission());
+          }
+          
           if (ba.getBalance() >= 0) {
+            ba.setNumTransactions(ba.getNumTransactions() + 1);
             bankAccountRepository.save(ba).subscribe();
+            
+            BankAccountCommission bco =
+                new BankAccountCommission(ba.getId(), ba.getCommission(), new Date());
+            bankAccountCommissionRepository.save(bco).subscribe();
+            
             entity.setRegisterDate(new Date());
             return bankAccountTransactionRepository.save(entity);
           } else {
@@ -134,6 +150,19 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
           return Flux.error(new Exception("Client not found"));
         }
       });
+    } catch (Exception e) {
+      return Flux.error(e);
+    }
+  }
+
+  @Override
+  public Flux<BankAccountCommission> getCommissionReport(String startDate, String endDate) {
+    try {
+      SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+      Date startD = format.parse(startDate);
+      Date endD = format.parse(endDate);
+      
+      return bankAccountCommissionRepository.findAllByRegisterDateBetween(startD, endD);
     } catch (Exception e) {
       return Flux.error(e);
     }

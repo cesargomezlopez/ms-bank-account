@@ -1,7 +1,12 @@
 package ms.bank.account.controller;
 
 import io.swagger.annotations.ApiOperation;
+
+import java.util.Date;
+
 import javax.validation.Valid;
+
+import ms.bank.account.model.BankAccountCommission;
 import ms.bank.account.model.BankAccountTransaction;
 import ms.bank.account.service.IBankAccountTransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -127,4 +132,18 @@ public class BankAccountTransactionController {
       .body(bankAccountTransactionService.findByBankAccountIdAndClientId(bankAccountId, clientId)))
       .defaultIfEmpty(ResponseEntity.notFound().build());
   }
+  
+  @GetMapping(value = "/getCommissionReport",
+      produces = MediaType.APPLICATION_JSON_VALUE)
+  @ApiOperation(value = "Get Commision Report",
+      notes = "Needs start date and end date")
+  public Mono<ResponseEntity<Flux<BankAccountCommission>>>
+      getCommissionReport(@RequestParam("startDate")String startDate,
+            @RequestParam("endDate")String endDate) {
+    return Mono.just(ResponseEntity.ok()
+      .contentType(MediaType.APPLICATION_JSON)
+      .body(bankAccountTransactionService.getCommissionReport(startDate, endDate)))
+      .defaultIfEmpty(ResponseEntity.notFound().build());
+  }
+
 }
