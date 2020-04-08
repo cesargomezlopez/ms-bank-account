@@ -26,9 +26,6 @@ public class BankAccountTransaction {
   
   @NotEmpty(message = "Bank Account Transaction Bank Account Id can not be empty")
   private String bankAccountId;
-
-  @NotEmpty(message = "Bank Account Transaction Client Id can not be empty")
-  private String clientId;
   
   private Date registerDate;
 }

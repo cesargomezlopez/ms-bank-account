@@ -42,29 +42,27 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
   @Override
   public Mono<BankAccountTransaction> create(BankAccountTransaction entity) {
     try {
-      return getClientByIdFromApi(entity.getClientId()).flatMap(cl -> {
-        return bankAccountRepository.findById(entity.getBankAccountId()).flatMap(ba -> {
-          ba.setBalance(ba.getBalance() + entity.getAmount());
-          
-          if (ba.getNumTransactions() >= ba.getMaxNumTransactions()) {
-            ba.setBalance(ba.getBalance() - ba.getCommission());
+      return bankAccountRepository.findById(entity.getBankAccountId()).flatMap(ba -> {
+        ba.setBalance(ba.getBalance() + entity.getAmount());
+        
+        if (ba.getNumTransactions() >= ba.getMaxNumTransactions()) {
+          ba.setBalance(ba.getBalance() - ba.getCommission());
+        }
+        
+        if (ba.getBalance() >= 0) {
+          ba.setNumTransactions(ba.getNumTransactions() + 1);
+          bankAccountRepository.save(ba).subscribe();
+          if (ba.getNumTransactions() > ba.getMaxNumTransactions()) {
+            BankAccountCommission bco =
+                new BankAccountCommission(ba.getId(), ba.getCommission(), new Date());
+            bankAccountCommissionRepository.save(bco).subscribe();
           }
-          
-          if (ba.getBalance() >= 0) {
-            ba.setNumTransactions(ba.getNumTransactions() + 1);
-            bankAccountRepository.save(ba).subscribe();
-            if (ba.getNumTransactions() > ba.getMaxNumTransactions()) {
-              BankAccountCommission bco =
-                  new BankAccountCommission(ba.getId(), ba.getCommission(), new Date());
-              bankAccountCommissionRepository.save(bco).subscribe();
-            }
-            entity.setRegisterDate(new Date());
-            return bankAccountTransactionRepository.save(entity);
-          } else {
-            return Mono.error(new Exception("Bank Account doesn´t have sufficient balance"));
-          }
+          entity.setRegisterDate(new Date());
+          return bankAccountTransactionRepository.save(entity);
+        } else {
+          return Mono.error(new Exception("Bank Account doesn´t have sufficient balance"));
+        }
         }).switchIfEmpty(Mono.error(new Exception("Bank Account not found")));
-      }).switchIfEmpty(Mono.error(new Exception("Client not found")));
     } catch (Exception e) {
       return Mono.error(e);
     }
@@ -74,17 +72,15 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
   public Mono<BankAccountTransaction> update(BankAccountTransaction entity) {
     try {
       return bankAccountTransactionRepository.findById(entity.getId()).flatMap(bat -> {
-        return getClientByIdFromApi(entity.getClientId()).flatMap(cl -> {
-          return bankAccountRepository.findById(entity.getBankAccountId()).flatMap(ba -> {
-            ba.setBalance(ba.getBalance() + entity.getAmount());
-            if (ba.getBalance() >= 0) {
-              bankAccountRepository.save(ba).subscribe();
-              return bankAccountTransactionRepository.save(entity);
-            } else {
-              return Mono.error(new Exception("Bank Account doesn´t have sufficient balance"));
-            }
-          }).switchIfEmpty(Mono.error(new Exception("Bank Account not found")));
-        }).switchIfEmpty(Mono.error(new Exception("Client not found")));
+        return bankAccountRepository.findById(entity.getBankAccountId()).flatMap(ba -> {
+          ba.setBalance(ba.getBalance() + entity.getAmount());
+          if (ba.getBalance() >= 0) {
+            bankAccountRepository.save(ba).subscribe();
+            return bankAccountTransactionRepository.save(entity);
+          } else {
+            return Mono.error(new Exception("Bank Account doesn´t have sufficient balance"));
+          }
+        }).switchIfEmpty(Mono.error(new Exception("Bank Account not found")));
       }).switchIfEmpty(Mono.error(new Exception("Bank Account Transaction not found")));
     } catch (Exception e) {
       return Mono.error(e);
@@ -103,53 +99,11 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
   }
 
   @Override
-  public Flux<BankAccountTransaction> findByClientId(String clientId) {
-    try {
-      return getClientByIdFromApi(clientId).flatMapMany(cl -> {
-        JsonParser parser = new JsonParser();
-        JsonObject client = parser.parse(cl).getAsJsonObject();
-        String id = client.get("id").getAsString();
-        
-        if (id != null) {
-          return bankAccountTransactionRepository.findByClientId(clientId);
-        } else {
-          return Flux.error(new Exception("Client not found"));
-        }
-      });
-    } catch (Exception e) {
-      return Flux.error(e);
-    }
-  }
-
-  @Override
   public Flux<BankAccountTransaction> findByBankAccountId(String bankAccountId) {
     try {
       return bankAccountRepository.findById(bankAccountId).flatMapMany(ba -> {
         return bankAccountTransactionRepository.findByBankAccountId(bankAccountId);
       }).switchIfEmpty(Flux.error(new Exception("Bank Account not found")));
-    } catch (Exception e) {
-      return Flux.error(e);
-    }
-  }
-
-  @Override
-  public Flux<BankAccountTransaction>
-      findByBankAccountIdAndClientId(String bankAccountId, String clientId) {
-    try {
-      return getClientByIdFromApi(clientId).flatMapMany(cl -> {
-        JsonParser parser = new JsonParser();
-        JsonObject client = parser.parse(cl).getAsJsonObject();
-        String id = client.get("id").getAsString();
-        
-        if (id != null) {
-          return bankAccountRepository.findById(bankAccountId).flatMapMany(ba -> {
-            return bankAccountTransactionRepository
-              .findByBankAccountIdAndClientId(bankAccountId, clientId);
-          }).switchIfEmpty(Flux.error(new Exception("Bank Account not found")));
-        } else {
-          return Flux.error(new Exception("Client not found"));
-        }
-      });
     } catch (Exception e) {
       return Flux.error(e);
     }
@@ -170,7 +124,7 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
   
   @Override
   public Mono<Confirmation>
-      payCreditAccountDebt(String bankAccountId, String creditAccountId) {      
+      payCreditAccountDebt(String bankAccountId, String creditAccountId, Double amount) {      
     try {
       return bankAccountRepository.findById(bankAccountId).flatMap(ba -> {
         return getCreditAccountDebt(creditAccountId).flatMap(debt -> {
@@ -194,11 +148,10 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
             batt.setCode("PCAD" + creditAccountId);
             batt.setAmount(-debt);
             batt.setBankAccountId(bankAccountId);
-            batt.setClientId(ba.getClientId());
             batt.setRegisterDate(new Date());
             bankAccountTransactionRepository.save(batt).subscribe();
             
-            return payCreditAccountDebt(creditAccountId).flatMap(rpt -> {
+            return payCreditAccountDebt(creditAccountId, amount).flatMap(rpt -> {
               if (rpt == 1) {
                 return Mono.just(new Confirmation(1, "Ok, Credit Account Debt paid"));
               }  else {
@@ -245,9 +198,10 @@ public class BankAccountTransactionServiceImpl implements IBankAccountTransactio
     }
   }
   
-  public Mono<Integer> payCreditAccountDebt(String creditAccountId) {
+  public Mono<Integer> payCreditAccountDebt(String creditAccountId, Double amount) {
     try {
-      String url = "http://localhost:8003/creditAccount/payDebt?creditAccountId=" + creditAccountId;
+      String url = "http://localhost:8003/creditAccountTransaction/payDebt?creditAccountId="
+          + creditAccountId + "&amount=" + amount;
       return WebClient.create()
         .post()
         .uri(url)

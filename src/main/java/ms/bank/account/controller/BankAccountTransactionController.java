@@ -95,19 +95,6 @@ public class BankAccountTransactionController {
       .defaultIfEmpty(ResponseEntity.notFound().build());
   }
   
-  @GetMapping(value = "/findAllBankAccountTransactionsByClientId",
-      produces = MediaType.APPLICATION_JSON_VALUE)
-  @ApiOperation(value = "Find All Client Bank Account Transactions",
-      notes = "Find All Client Bank Account Transactions registered")
-  public Mono<ResponseEntity<Flux<BankAccountTransaction>>>
-          findAllBankAccountTransactionsByClientId(
-            @RequestParam("clientId")String clientId) {
-    return Mono.just(ResponseEntity.ok()
-      .contentType(MediaType.APPLICATION_JSON)
-      .body(bankAccountTransactionService.findByClientId(clientId)))
-      .defaultIfEmpty(ResponseEntity.notFound().build());
-  }
-  
   @GetMapping(value = "/findAllBankAccountTransactionsByBankAccountId",
       produces = MediaType.APPLICATION_JSON_VALUE)
   @ApiOperation(value = "Find All Bank Account Transactions by Bank Account Id",
@@ -118,20 +105,6 @@ public class BankAccountTransactionController {
     return Mono.just(ResponseEntity.ok()
       .contentType(MediaType.APPLICATION_JSON)
       .body(bankAccountTransactionService.findByBankAccountId(bankAccountId)))
-      .defaultIfEmpty(ResponseEntity.notFound().build());
-  }
-  
-  @GetMapping(value = "/findAllBankAccountTransactionsByBankAccountIdAndClientId",
-      produces = MediaType.APPLICATION_JSON_VALUE)
-  @ApiOperation(value = "Find All Bank Account Transactions by Bank Account Id and Client Id",
-      notes = "Find All Bank Account Transactions registered by Bank Account Id and Client Id")
-  public Mono<ResponseEntity<Flux<BankAccountTransaction>>>
-      findAllBankAccountTransactionsByBankAccountIdAndClientId(
-            @RequestParam("bankAccountId")String bankAccountId,
-            @RequestParam("clientId")String clientId) {
-    return Mono.just(ResponseEntity.ok()
-      .contentType(MediaType.APPLICATION_JSON)
-      .body(bankAccountTransactionService.findByBankAccountIdAndClientId(bankAccountId, clientId)))
       .defaultIfEmpty(ResponseEntity.notFound().build());
   }
   
@@ -154,9 +127,10 @@ public class BankAccountTransactionController {
       notes = "Needs start date and end date")
   public Mono<ResponseEntity<Confirmation>>
       payCreditAccountDebt(@RequestParam("bankAccountId")String bankAccountId,
-            @RequestParam("creditAccountId")String creditAccountId) {
+            @RequestParam("creditAccountId")String creditAccountId,
+            @RequestParam("amount")Double amount) {
     return bankAccountTransactionService
-      .payCreditAccountDebt(bankAccountId, creditAccountId).flatMap(rs -> {
+      .payCreditAccountDebt(bankAccountId, creditAccountId, amount).flatMap(rs -> {
         return Mono.just(ResponseEntity.ok()
           .contentType(MediaType.APPLICATION_JSON)
           .body(rs))
